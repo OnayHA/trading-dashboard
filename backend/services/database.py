@@ -51,6 +51,7 @@ def init_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 email TEXT,
+                phone TEXT,
                 password_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 is_active BOOLEAN DEFAULT 1

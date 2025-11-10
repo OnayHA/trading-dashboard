@@ -32,6 +32,13 @@ class RegisterRequest(BaseModel):
     email: str = None
 
 
+class UpdateProfileRequest(BaseModel):
+    current_username: str
+    new_username: str = None
+    new_password: str = None
+    phone: str = None
+
+
 class TokenResponse(BaseModel):
     token: str
     username: str
@@ -141,5 +148,74 @@ async def get_profile(username: str):
     return {
         "username": user["username"],
         "email": user["email"],
+        "phone": user.get("phone"),
         "created_at": user["created_at"]
     }
+
+
+@router.put("/profile")
+async def update_profile(request: UpdateProfileRequest):
+    """
+    Update user profile (username, password, phone).
+    Returns new token if username changed.
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+
+        # Verify user exists
+        cursor.execute("SELECT * FROM users WHERE username = ?", (request.current_username,))
+        user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Check if new username already exists (if changing username)
+        if request.new_username and request.new_username != request.current_username:
+            cursor.execute("SELECT * FROM users WHERE username = ?", (request.new_username,))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail="Username already exists")
+
+        # Build update query dynamically
+        updates = []
+        params = []
+
+        if request.new_username:
+            updates.append("username = ?")
+            params.append(request.new_username)
+
+        if request.new_password:
+            updates.append("password_hash = ?")
+            params.append(get_password_hash(request.new_password))
+
+        if request.phone is not None:  # Allow empty string to clear phone
+            updates.append("phone = ?")
+            params.append(request.phone)
+
+        if not updates:
+            raise HTTPException(status_code=400, detail="No updates provided")
+
+        # Add current username to params for WHERE clause
+        params.append(request.current_username)
+
+        # Execute update
+        query = f"UPDATE users SET {', '.join(updates)} WHERE username = ?"
+        cursor.execute(query, params)
+        conn.commit()
+
+        # Get updated user
+        final_username = request.new_username if request.new_username else request.current_username
+        cursor.execute("SELECT * FROM users WHERE username = ?", (final_username,))
+        updated_user = cursor.fetchone()
+
+        # If username changed, create new token
+        new_token = None
+        if request.new_username:
+            new_token = create_access_token({"sub": final_username})
+
+        return {
+            "message": "Profile updated successfully",
+            "username": updated_user["username"],
+            "email": updated_user["email"],
+            "phone": updated_user.get("phone"),
+            "token": new_token  # Only present if username changed
+        }

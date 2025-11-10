@@ -1,46 +1,56 @@
 /**
  * Market Status Utilities
  * Calculate market open/close status and time remaining
+ * Using America/Chicago timezone
  */
 
 /**
- * Calculate market status based on NY time
+ * Calculate market status based on Chicago time
  */
-export const calculateMarketStatus = (nyTime = new Date()) => {
-  const day = nyTime.getDay(); // 0 = Sunday, 6 = Saturday
-  const hour = nyTime.getHours();
-  const minute = nyTime.getMinutes();
-  const totalMinutes = hour * 60 + minute;
+export const calculateMarketStatus = (chicagoTime = new Date()) => {
+  const day = chicagoTime.getDay(); // 0 = Sunday, 6 = Saturday
+  const hour = chicagoTime.getHours();
+  const minute = chicagoTime.getMinutes();
+  const second = chicagoTime.getSeconds();
+  const totalSeconds = hour * 3600 + minute * 60 + second;
+
+  const MARKET_OPEN = 8.5 * 3600;  // 8:30 AM in seconds = 30600
+  const MARKET_CLOSE = 15 * 3600;  // 3:00 PM in seconds = 54000
 
   // Weekend
   if (day === 0 || day === 6) {
     return {
       state: 'closed',
-      timeUntil: day === 6 ? 'el lunes' : 'mañana lunes',
+      timeUntil: day === 6 ? 'Abre el lunes' : 'Abre mañana lunes',
+      countdown: null,
       isOpen: false,
     };
   }
 
-  // Premarket: before 9:30 AM (570 minutes)
-  if (totalMinutes < 570) {
-    const minutesUntilOpen = 570 - totalMinutes;
-    const hours = Math.floor(minutesUntilOpen / 60);
-    const mins = minutesUntilOpen % 60;
+  // Before market open (before 8:30 AM Chicago)
+  if (totalSeconds < MARKET_OPEN) {
+    const secondsUntilOpen = MARKET_OPEN - totalSeconds;
+    const hours = Math.floor(secondsUntilOpen / 3600);
+    const mins = Math.floor((secondsUntilOpen % 3600) / 60);
+    const secs = secondsUntilOpen % 60;
     return {
       state: 'premarket',
-      timeUntil: `${hours}h ${mins}m`,
+      timeUntil: 'Mercado Cerrado',
+      countdown: `Abre en ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       isOpen: false,
     };
   }
 
-  // Market open: 9:30 AM - 4:00 PM (960 minutes)
-  if (totalMinutes >= 570 && totalMinutes < 960) {
-    const minutesUntilClose = 960 - totalMinutes;
-    const hours = Math.floor(minutesUntilClose / 60);
-    const mins = minutesUntilClose % 60;
+  // Market open: 8:30 AM - 3:00 PM Chicago
+  if (totalSeconds >= MARKET_OPEN && totalSeconds < MARKET_CLOSE) {
+    const secondsUntilClose = MARKET_CLOSE - totalSeconds;
+    const hours = Math.floor(secondsUntilClose / 3600);
+    const mins = Math.floor((secondsUntilClose % 3600) / 60);
+    const secs = secondsUntilClose % 60;
     return {
       state: 'open',
-      timeUntil: `${hours}h ${mins}m`,
+      timeUntil: 'Mercado Abierto',
+      countdown: `Cierra en ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`,
       isOpen: true,
     };
   }
@@ -48,14 +58,18 @@ export const calculateMarketStatus = (nyTime = new Date()) => {
   // After hours
   return {
     state: 'closed',
-    timeUntil: 'mañana',
+    timeUntil: 'Mercado Cerrado',
+    countdown: 'Abre mañana',
     isOpen: false,
   };
 };
 
 /**
- * Get NY time from local time
+ * Get Chicago time from local time
  */
-export const getNYTime = () => {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+export const getChicagoTime = () => {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }));
 };
+
+// Export getNYTime as alias for backwards compatibility
+export const getNYTime = getChicagoTime;

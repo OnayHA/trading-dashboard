@@ -51,6 +51,12 @@ export function AuthProvider({ children }) {
     return false;
   };
 
+  const updateUser = (updatedUserData) => {
+    const newUser = { ...user, ...updatedUserData };
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
+  };
+
   const value = {
     user,
     token,
@@ -61,6 +67,7 @@ export function AuthProvider({ children }) {
     logout,
     lock,
     unlock,
+    updateUser,
   };
 
   return (
