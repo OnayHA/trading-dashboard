@@ -37,6 +37,8 @@ def init_database():
     Initialize database with required tables.
     Creates tables only if they don't exist.
     """
+    from services.auth_service import get_password_hash
+
     # Ensure directory exists
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -75,13 +77,15 @@ def init_database():
 
         # Create default admin user
         # Password: "admin" (change after first login!)
+        # Generate hash dynamically to ensure compatibility
+        admin_password_hash = get_password_hash("admin")
         cursor.execute("""
             INSERT OR IGNORE INTO users (username, email, password_hash, created_at, is_active)
             VALUES (?, ?, ?, ?, ?)
         """, (
             "admin",
             "admin@trading.com",
-            "$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5NU7gqT.aQCO2",  # bcrypt hash of "admin"
+            admin_password_hash,
             datetime.utcnow().isoformat(),
             1
         ))
