@@ -58,6 +58,16 @@ def init_database():
             )
         """)
 
+        # Migration: Add phone column if it doesn't exist
+        try:
+            cursor.execute("SELECT phone FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            print("📝 Adding phone column to users table...")
+            cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT")
+            conn.commit()
+            print("✅ Phone column added")
+
         # Create system_config table (for dashboard settings)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS system_config (

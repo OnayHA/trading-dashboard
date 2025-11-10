@@ -64,8 +64,12 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
         current_username: currentUser.username,
       };
 
-      // Only include fields that changed
-      if (formData.newUsername !== currentUser.username) {
+      // Check if username actually changed
+      const usernameChanged = formData.newUsername && formData.newUsername !== currentUser.username;
+      const phoneChanged = formData.phone !== (currentUser.phone || '');
+
+      // Only include fields that actually changed
+      if (usernameChanged) {
         updateData.new_username = formData.newUsername;
       }
 
@@ -73,21 +77,33 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
         updateData.new_password = formData.newPassword;
       }
 
-      if (formData.phone !== currentUser.phone) {
+      if (phoneChanged) {
         updateData.phone = formData.phone;
       }
+
+      // If nothing changed, don't send request
+      if (!usernameChanged && !formData.newPassword && !phoneChanged) {
+        setError('No hay cambios para guardar');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Sending update:', updateData);
 
       const response = await api.put('/auth/profile', updateData);
 
       setSuccess('Perfil actualizado correctamente');
 
-      // If username changed, update token
+      // Update localStorage immediately
+      localStorage.setItem('user', JSON.stringify({
+        username: response.data.username,
+        email: response.data.email,
+        phone: response.data.phone,
+      }));
+
+      // If username or password changed, update token and reload page
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify({
-          username: response.data.username,
-          email: response.data.email,
-        }));
       }
 
       // Notify parent component
@@ -99,12 +115,20 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
         });
       }
 
-      // Close modal after 1 second
-      setTimeout(() => {
-        onClose();
-        setSuccess('');
-      }, 1000);
+      // If credentials changed, reload page to ensure everything syncs
+      if (usernameChanged || formData.newPassword) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        // Just close modal if only phone changed
+        setTimeout(() => {
+          onClose();
+          setSuccess('');
+        }, 1000);
+      }
     } catch (err) {
+      console.error('Update error:', err);
       setError(err.response?.data?.detail || 'Error al actualizar el perfil');
     } finally {
       setLoading(false);
