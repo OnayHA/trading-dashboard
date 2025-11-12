@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import uvicorn
 
-from routers import auth, system, positions, trades, config as config_router, manual
+from routers import auth, system, positions, trades, config as config_router, manual, users
 from services.websocket import ws_manager
 from services.database import init_database, init_auth_database
 from config import settings
@@ -58,6 +58,7 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/api", tags=["User Management"])
 app.include_router(system.router, prefix="/api/system", tags=["System"])
 app.include_router(positions.router, prefix="/api/positions", tags=["Positions"])
 app.include_router(trades.router, prefix="/api/trades", tags=["Trades"])
