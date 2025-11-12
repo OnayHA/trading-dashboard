@@ -30,12 +30,14 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     email: str = None
+    role: str = "user"  # Default to 'user' role
 
 
 class UpdateProfileRequest(BaseModel):
     current_username: str
     new_username: str = None
     new_password: str = None
+    email: str = None
     phone: str = None
 
 
@@ -117,19 +119,24 @@ async def register(request: RegisterRequest):
 
         # Create new user
         cursor.execute("""
-            INSERT INTO users (username, email, password_hash, created_at, is_active)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (username, email, password_hash, role, created_at, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             request.username,
             request.email or f"{request.username}@trading.com",
             get_password_hash(request.password),
+            request.role,
             datetime.utcnow().isoformat(),
             1
         ))
 
         conn.commit()
 
-    return {"message": "User created successfully"}
+    return {
+        "message": "User created successfully",
+        "username": request.username,
+        "role": request.role
+    }
 
 
 @router.get("/profile")
@@ -189,6 +196,10 @@ async def update_profile(request: UpdateProfileRequest):
         if request.new_password:
             updates.append("password_hash = ?")
             params.append(get_password_hash(request.new_password))
+
+        if request.email is not None:  # Allow changing email
+            updates.append("email = ?")
+            params.append(request.email)
 
         if request.phone is not None:  # Allow empty string to clear phone
             updates.append("phone = ?")

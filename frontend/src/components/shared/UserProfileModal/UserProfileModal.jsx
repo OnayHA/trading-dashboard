@@ -3,7 +3,7 @@
  * Modal for updating user profile (username, password, phone)
  */
 import React, { useState, useEffect } from 'react';
-import { X, User, Lock, Phone, AlertCircle } from 'lucide-react';
+import { X, User, Lock, Phone, Mail, AlertCircle } from 'lucide-react';
 import { Modal } from '../Modal/Modal';
 import { Input } from '../Input/Input';
 import { Button } from '../Button/Button';
@@ -12,6 +12,7 @@ import api from '../../../services/api';
 export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
   const [formData, setFormData] = useState({
     newUsername: '',
+    email: '',
     newPassword: '',
     confirmPassword: '',
     phone: '',
@@ -32,6 +33,7 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
       const response = await api.get(`/auth/profile?username=${currentUser.username}`);
       setFormData({
         newUsername: response.data.username,
+        email: response.data.email || '',
         newPassword: '',
         confirmPassword: '',
         phone: response.data.phone || '',
@@ -64,8 +66,9 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
         current_username: currentUser.username,
       };
 
-      // Check if username actually changed
+      // Check if fields actually changed
       const usernameChanged = formData.newUsername && formData.newUsername !== currentUser.username;
+      const emailChanged = formData.email !== (currentUser.email || '');
       const phoneChanged = formData.phone !== (currentUser.phone || '');
 
       // Only include fields that actually changed
@@ -77,12 +80,16 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
         updateData.new_password = formData.newPassword;
       }
 
+      if (emailChanged) {
+        updateData.email = formData.email;
+      }
+
       if (phoneChanged) {
         updateData.phone = formData.phone;
       }
 
       // If nothing changed, don't send request
-      if (!usernameChanged && !formData.newPassword && !phoneChanged) {
+      if (!usernameChanged && !formData.newPassword && !emailChanged && !phoneChanged) {
         setError('No hay cambios para guardar');
         setLoading(false);
         return;
@@ -178,6 +185,24 @@ export function UserProfileModal({ isOpen, onClose, currentUser, onUpdate }) {
               onChange={handleChange}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Nuevo nombre de usuario"
+            />
+          </div>
+        </div>
+
+        {/* Email */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Email
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="tu@email.com"
             />
           </div>
         </div>
