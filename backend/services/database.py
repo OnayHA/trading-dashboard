@@ -12,12 +12,13 @@ from config import settings
 
 
 DATABASE_PATH = Path(settings.DATABASE_PATH)
+AUTH_DATABASE_PATH = Path(settings.AUTH_DATABASE_PATH)
 
 
 @contextmanager
 def get_db_connection():
     """
-    Context manager for SQLite database connection.
+    Context manager for SQLite database connection (trading data).
 
     Usage:
         with get_db_connection() as conn:
@@ -32,41 +33,34 @@ def get_db_connection():
         conn.close()
 
 
+@contextmanager
+def get_auth_db_connection():
+    """
+    Context manager for authentication database connection.
+
+    Usage:
+        with get_auth_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users")
+    """
+    conn = sqlite3.connect(AUTH_DATABASE_PATH)
+    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+
 def init_database():
     """
-    Initialize database with required tables.
+    Initialize trading database with required tables.
     Creates tables only if they don't exist.
     """
-    from services.auth_service import get_password_hash
-
     # Ensure directory exists
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
-
-        # Create users table (for dashboard authentication)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                email TEXT,
-                phone TEXT,
-                password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                is_active BOOLEAN DEFAULT 1
-            )
-        """)
-
-        # Migration: Add phone column if it doesn't exist
-        try:
-            cursor.execute("SELECT phone FROM users LIMIT 1")
-        except sqlite3.OperationalError:
-            # Column doesn't exist, add it
-            print("📝 Adding phone column to users table...")
-            cursor.execute("ALTER TABLE users ADD COLUMN phone TEXT")
-            conn.commit()
-            print("✅ Phone column added")
 
         # Create system_config table (for dashboard settings)
         cursor.execute("""
@@ -86,23 +80,54 @@ def init_database():
             ('allocation_mode', 'per_ticker', ?)
         """, (datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
 
+        conn.commit()
+        print("✅ Trading database tables initialized")
+
+
+def init_auth_database():
+    """
+    Initialize authentication database with users table.
+    Creates auth.db in separate location from trading data.
+    """
+    from services.auth_service import get_password_hash
+
+    # Ensure directory exists
+    AUTH_DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    with get_auth_db_connection() as conn:
+        cursor = conn.cursor()
+
+        # Create users table with role field
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT,
+                phone TEXT,
+                password_hash TEXT NOT NULL,
+                role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
+                created_at TEXT NOT NULL,
+                is_active BOOLEAN DEFAULT 1
+            )
+        """)
+
         # Create default admin user
         # Password: "admin" (change after first login!)
-        # Generate hash dynamically to ensure compatibility
         admin_password_hash = get_password_hash("admin")
         cursor.execute("""
-            INSERT OR IGNORE INTO users (username, email, password_hash, created_at, is_active)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO users (username, email, password_hash, role, created_at, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             "admin",
             "admin@trading.com",
             admin_password_hash,
+            "admin",
             datetime.utcnow().isoformat(),
             1
         ))
 
         conn.commit()
-        print("✅ Database tables initialized")
+        print("✅ Authentication database initialized")
 
 
 # Query functions for trades (from existing trading system)

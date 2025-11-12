@@ -10,7 +10,7 @@ import uvicorn
 
 from routers import auth, system, positions, trades, config as config_router, manual
 from services.websocket import ws_manager
-from services.database import init_database
+from services.database import init_database, init_auth_database
 from config import settings
 
 
@@ -19,14 +19,21 @@ async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
     print("🚀 Iniciando Trading Dashboard Backend...")
-    print(f"📊 Database: {settings.DATABASE_PATH}")
+    print(f"📊 Trading Database: {settings.DATABASE_PATH}")
+    print(f"🔐 Auth Database: {settings.AUTH_DATABASE_PATH}")
 
-    # Initialize database
+    # Initialize databases
+    try:
+        init_auth_database()
+        print("✅ Auth database initialized")
+    except Exception as e:
+        print(f"⚠️  Auth database initialization warning: {e}")
+
     try:
         init_database()
-        print("✅ Database initialized")
+        print("✅ Trading database initialized")
     except Exception as e:
-        print(f"⚠️  Database initialization warning: {e}")
+        print(f"⚠️  Trading database initialization warning: {e}")
 
     yield
 

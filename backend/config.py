@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_PATH: str = "data/trades_data/trading.db"
+    AUTH_DATABASE_PATH: str = "data/auth/auth.db"
 
     # JWT
     JWT_SECRET_KEY: str = "dev-secret-key-change-in-production"

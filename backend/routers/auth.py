@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 from services.auth_service import verify_password, get_password_hash, create_access_token
-from services.database import get_db_connection
+from services.database import get_auth_db_connection
 
 
 router = APIRouter()
@@ -43,6 +43,7 @@ class TokenResponse(BaseModel):
     token: str
     username: str
     email: str
+    role: str = "user"
 
 
 # Endpoints
@@ -55,7 +56,7 @@ async def login(request: LoginRequest):
     - username: admin
     - password: admin
     """
-    with get_db_connection() as conn:
+    with get_auth_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE username = ?", (request.username,))
         user = cursor.fetchone()
@@ -75,7 +76,8 @@ async def login(request: LoginRequest):
     return TokenResponse(
         token=token,
         username=user["username"],
-        email=user["email"] or ""
+        email=user["email"] or "",
+        role=user.get("role", "user")
     )
 
 
@@ -85,7 +87,7 @@ async def verify_password_endpoint(request: VerifyPasswordRequest):
     Verify password for lock screen unlock.
     Does NOT invalidate the session - only checks password.
     """
-    with get_db_connection() as conn:
+    with get_auth_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE username = ?", (request.username,))
         user = cursor.fetchone()
@@ -105,7 +107,7 @@ async def register(request: RegisterRequest):
 
     TODO: Add admin-only restriction in production.
     """
-    with get_db_connection() as conn:
+    with get_auth_db_connection() as conn:
         cursor = conn.cursor()
 
         # Check if user exists
@@ -137,7 +139,7 @@ async def get_profile(username: str):
 
     TODO: Extract username from JWT token instead of query parameter.
     """
-    with get_db_connection() as conn:
+    with get_auth_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
         user = cursor.fetchone()
@@ -149,6 +151,7 @@ async def get_profile(username: str):
         "username": user["username"],
         "email": user["email"],
         "phone": user.get("phone"),
+        "role": user.get("role", "user"),
         "created_at": user["created_at"]
     }
 
@@ -159,7 +162,7 @@ async def update_profile(request: UpdateProfileRequest):
     Update user profile (username, password, phone).
     Returns new token if username changed.
     """
-    with get_db_connection() as conn:
+    with get_auth_db_connection() as conn:
         cursor = conn.cursor()
 
         # Verify user exists
@@ -217,5 +220,6 @@ async def update_profile(request: UpdateProfileRequest):
             "username": updated_user["username"],
             "email": updated_user["email"],
             "phone": updated_user.get("phone"),
+            "role": updated_user.get("role", "user"),
             "token": new_token  # Only present if username changed
         }
