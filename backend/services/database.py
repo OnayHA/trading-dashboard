@@ -223,19 +223,54 @@ def get_recent_signals(limit: int = 10) -> List[Dict]:
 
 def get_system_config(key: str) -> Optional[str]:
     """Get system configuration value by key."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT value FROM system_config WHERE key = ?", (key,))
-        row = cursor.fetchone()
-        return row["value"] if row else None
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT value FROM system_config WHERE key = ?", (key,))
+            row = cursor.fetchone()
+            return row["value"] if row else None
+    except sqlite3.OperationalError as e:
+        # Database doesn't exist or table missing - try to initialize
+        print(f"⚠️  Database error in get_system_config: {e}")
+        print("🔧 Attempting to initialize database...")
+        try:
+            init_database()
+            # Retry the query
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM system_config WHERE key = ?", (key,))
+                row = cursor.fetchone()
+                return row["value"] if row else None
+        except Exception as init_error:
+            print(f"❌ Failed to initialize database: {init_error}")
+            # Return default values for known keys
+            defaults = {
+                "live_trading_enabled": "true",
+                "hold_type": "smart",
+                "allocation_mode": "per_ticker"
+            }
+            return defaults.get(key, None)
 
 
 def set_system_config(key: str, value: str):
     """Set system configuration value."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT OR REPLACE INTO system_config (key, value, updated_at)
-            VALUES (?, ?, ?)
-        """, (key, value, datetime.utcnow().isoformat()))
-        conn.commit()
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO system_config (key, value, updated_at)
+                VALUES (?, ?, ?)
+            """, (key, value, datetime.utcnow().isoformat()))
+            conn.commit()
+    except sqlite3.OperationalError as e:
+        # Database doesn't exist or table missing - initialize and retry
+        print(f"⚠️  Database error in set_system_config: {e}")
+        print("🔧 Attempting to initialize database...")
+        init_database()
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO system_config (key, value, updated_at)
+                VALUES (?, ?, ?)
+            """, (key, value, datetime.utcnow().isoformat()))
+            conn.commit()

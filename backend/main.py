@@ -22,13 +22,17 @@ async def lifespan(app: FastAPI):
     print(f"📊 Trading Database: {settings.DATABASE_PATH}")
     print(f"🔐 Auth Database: {settings.AUTH_DATABASE_PATH}")
 
-    # Initialize auth database only
-    # Note: Trading database is managed by the external trading system
+    # Initialize databases
     try:
+        # Initialize auth database
         init_auth_database()
         print("✅ Auth database initialized")
+
+        # Initialize trading database (for system config and dashboard data)
+        init_database()
+        print("✅ Trading database initialized")
     except Exception as e:
-        print(f"⚠️  Auth database initialization warning: {e}")
+        print(f"⚠️  Database initialization warning: {e}")
 
     yield
 
