@@ -84,10 +84,9 @@ fi
 
 echo -e "${GREEN}✓${NC} Dependencias del frontend instaladas"
 
-# Initialize database
-echo -e "${BLUE}▶${NC} Inicializando base de datos..."
-cd "$BACKEND_DIR"
-python3 -c "from services.database import init_database; init_database()" 2>/dev/null || echo -e "${YELLOW}⚠${NC} Base de datos ya inicializada"
+# Database initialization is handled by main.py on startup
+# No need to initialize manually here
+echo -e "${GREEN}✓${NC} Database will be initialized on backend startup"
 
 # Check if backend port is in use
 if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
@@ -114,9 +113,10 @@ fi
 # Start backend
 echo -e "${GREEN}▶${NC} Iniciando backend..."
 cd "$BACKEND_DIR"
-python3 -m uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT --reload > /dev/null 2>&1 &
+python3 -m uvicorn main:app --host 0.0.0.0 --port $BACKEND_PORT --reload > "$PROJECT_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 echo -e "${GREEN}✓${NC} Backend PID: $BACKEND_PID"
+echo -e "${BLUE}ℹ${NC}  Backend logs: $PROJECT_DIR/backend.log"
 
 # Wait for backend to be ready
 echo -n "Esperando backend"
@@ -132,9 +132,10 @@ done
 # Start frontend
 echo -e "${GREEN}▶${NC} Iniciando frontend..."
 cd "$FRONTEND_DIR"
-npm run dev > /dev/null 2>&1 &
+npm run dev > "$PROJECT_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo -e "${GREEN}✓${NC} Frontend PID: $FRONTEND_PID"
+echo -e "${BLUE}ℹ${NC}  Frontend logs: $PROJECT_DIR/frontend.log"
 
 # Wait for frontend to be ready
 echo -n "Esperando frontend"
