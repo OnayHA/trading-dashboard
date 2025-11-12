@@ -2,7 +2,7 @@
 Authentication Router
 Handles login, password verification, and user management
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
 import json
@@ -10,6 +10,7 @@ from pathlib import Path
 
 from services.auth_service import verify_password, get_password_hash, create_access_token
 from services.database import get_auth_db_connection
+from middleware.auth import get_current_user
 
 
 router = APIRouter()
@@ -143,12 +144,26 @@ async def register(request: RegisterRequest):
 
 
 @router.get("/profile")
-async def get_profile(username: str):
+async def get_profile(username: str, current_user: str = Depends(get_current_user)):
     """
-    Get user profile.
+    Get user profile (REQUIRES VALID TOKEN).
 
-    TODO: Extract username from JWT token instead of query parameter.
+    Validates JWT token before returning profile data.
+    Users can only view their own profile unless they are admin.
     """
+    # Verify requesting user matches the profile being requested
+    if username != current_user:
+        # Check if current user is admin
+        with get_auth_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT role FROM users WHERE username = ?", (current_user,))
+            current_user_data = cursor.fetchone()
+            if not current_user_data or dict(current_user_data).get("role") != "admin":
+                raise HTTPException(
+                    status_code=403,
+                    detail="You can only view your own profile"
+                )
+
     with get_auth_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
