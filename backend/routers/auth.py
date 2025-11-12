@@ -75,11 +75,14 @@ async def login(request: LoginRequest):
     # Create JWT token
     token = create_access_token({"sub": user["username"]})
 
+    # Convert Row to dict to safely access fields
+    user_dict = dict(user)
+
     return TokenResponse(
         token=token,
-        username=user["username"],
-        email=user["email"] or "",
-        role=user.get("role", "user")
+        username=user_dict["username"],
+        email=user_dict.get("email") or "",
+        role=user_dict.get("role", "user")
     )
 
 
@@ -154,12 +157,15 @@ async def get_profile(username: str):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Convert Row to dict
+    user_dict = dict(user)
+
     return {
-        "username": user["username"],
-        "email": user["email"],
-        "phone": user.get("phone"),
-        "role": user.get("role", "user"),
-        "created_at": user["created_at"]
+        "username": user_dict["username"],
+        "email": user_dict["email"],
+        "phone": user_dict.get("phone"),
+        "role": user_dict.get("role", "user"),
+        "created_at": user_dict["created_at"]
     }
 
 
@@ -221,6 +227,9 @@ async def update_profile(request: UpdateProfileRequest):
         cursor.execute("SELECT * FROM users WHERE username = ?", (final_username,))
         updated_user = cursor.fetchone()
 
+        # Convert Row to dict
+        user_dict = dict(updated_user)
+
         # If username changed, create new token
         new_token = None
         if request.new_username:
@@ -228,9 +237,9 @@ async def update_profile(request: UpdateProfileRequest):
 
         return {
             "message": "Profile updated successfully",
-            "username": updated_user["username"],
-            "email": updated_user["email"],
-            "phone": updated_user.get("phone"),
-            "role": updated_user.get("role", "user"),
+            "username": user_dict["username"],
+            "email": user_dict["email"],
+            "phone": user_dict.get("phone"),
+            "role": user_dict.get("role", "user"),
             "token": new_token  # Only present if username changed
         }
