@@ -55,12 +55,22 @@ def init_database():
     """
     Initialize trading database with required tables.
     Creates tables only if they don't exist.
+
+    IMPORTANT: Removes users table from trading.db if it exists.
+    Users are now stored in auth.db only.
     """
     # Ensure directory exists
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
+
+        # DROP users table if it exists (migration from old structure)
+        try:
+            cursor.execute("DROP TABLE IF EXISTS users")
+            print("🔧 Removed users table from trading.db (now in auth.db)")
+        except Exception as e:
+            print(f"⚠️  Warning removing users table: {e}")
 
         # Create system_config table (for dashboard settings)
         cursor.execute("""
@@ -81,7 +91,7 @@ def init_database():
         """, (datetime.utcnow().isoformat(), datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
 
         conn.commit()
-        print("✅ Trading database tables initialized")
+        print("✅ Trading database initialized")
 
 
 def init_auth_database():
